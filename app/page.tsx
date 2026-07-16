@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ThemeToggle from "./components/ThemeToggle";
+import BuildingStudio from "./components/BuildingStudio";
 
 type Clip = {
   id?: string;
@@ -37,20 +38,13 @@ const FAIL_STATUSES = new Set([
   "SENSITIVE_WORD_ERROR",
 ]);
 
-const STATUS_COPY: Record<string, string> = {
-  PENDING: "Warming up the studio…",
-  TEXT_SUCCESS: "Writing your lyrics and arrangement…",
-  FIRST_SUCCESS: "Your first track is landing — almost there…",
-  SUCCESS: "Done!",
-};
-
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [instrumental, setInstrumental] = useState(false);
   const [model, setModel] = useState("V4_5");
 
   const [phase, setPhase] = useState<Phase>("idle");
-  const [statusText, setStatusText] = useState("");
+  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [clips, setClips] = useState<Clip[]>([]);
 
@@ -78,21 +72,21 @@ export default function Home() {
           throw new Error(data?.error || "Could not check on your song.");
         }
 
-        const status: string = data.status || "PENDING";
+        const newStatus: string = data.status || "PENDING";
         const nextClips: Clip[] = data.clips || [];
         if (nextClips.length) setClips(nextClips);
-        setStatusText(STATUS_COPY[status] || "Composing your track…");
+        setStatus(newStatus);
 
         const hasPlayable = nextClips.some((c) => c.audioUrl || c.streamAudioUrl);
 
-        if (status === "SUCCESS" && hasPlayable) {
+        if (newStatus === "SUCCESS" && hasPlayable) {
           setPhase("done");
           stopPolling();
           return;
         }
-        if (FAIL_STATUSES.has(status)) {
+        if (FAIL_STATUSES.has(newStatus)) {
           throw new Error(
-            status === "SENSITIVE_WORD_ERROR"
+            newStatus === "SENSITIVE_WORD_ERROR"
               ? "That description was flagged. Try rephrasing it."
               : "The music service couldn't finish this one. Please try again.",
           );
@@ -121,7 +115,7 @@ export default function Home() {
     setError("");
     setClips([]);
     setPhase("starting");
-    setStatusText("Sending your idea to the studio…");
+    setStatus("PENDING");
 
     try {
       const res = await fetch("/api/generate", {
@@ -147,7 +141,7 @@ export default function Home() {
     setPhase("idle");
     setError("");
     setClips([]);
-    setStatusText("");
+    setStatus("");
   }, [stopPolling]);
 
   const busy = phase === "starting" || phase === "generating";
@@ -165,7 +159,7 @@ export default function Home() {
           <span className="h-1.5 w-1.5 rounded-full bg-fuchsia-500 dark:bg-fuchsia-400" />
           EZE · AI Music Studio
         </div>
-        <h1 className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-500 bg-clip-text text-4xl font-black tracking-tight text-transparent dark:from-violet-200 dark:via-fuchsia-200 dark:to-sky-200 sm:text-5xl">
+        <h1 className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-sky-500 bg-[length:200%_auto] bg-clip-text text-4xl font-black tracking-tight text-transparent animate-shimmer motion-reduce:animate-none dark:from-violet-300 dark:via-fuchsia-300 dark:to-sky-300 sm:text-5xl">
           Be your own favorite artist
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-balance text-sm text-slate-600 dark:text-violet-100/70 sm:text-base">
@@ -198,7 +192,7 @@ export default function Home() {
                 type="button"
                 disabled={busy}
                 onClick={() => setPrompt(idea)}
-                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 transition hover:border-fuchsia-300 hover:text-slate-900 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-violet-100/70 dark:hover:border-fuchsia-300/40 dark:hover:text-white"
+                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 transition duration-200 hover:-translate-y-0.5 hover:border-fuchsia-300 hover:text-slate-900 hover:shadow-sm active:scale-95 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-violet-100/70 dark:hover:border-fuchsia-300/40 dark:hover:text-white"
               >
                 {idea.length > 34 ? idea.slice(0, 32) + "…" : idea}
               </button>
@@ -241,9 +235,10 @@ export default function Home() {
           type="button"
           onClick={generate}
           disabled={busy || !prompt.trim()}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-fuchsia-500/25 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className="group mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 bg-[length:200%_auto] px-6 py-3.5 text-base font-semibold text-white shadow-lg shadow-fuchsia-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:bg-right hover:shadow-xl hover:shadow-fuchsia-500/40 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg motion-reduce:transition-none"
         >
-          {busy ? "Creating…" : "✨ Create my song"}
+          <span className="transition group-hover:scale-110 motion-reduce:transform-none">✨</span>
+          {busy ? "Creating…" : "Create my song"}
         </button>
 
         {error && (
@@ -257,19 +252,7 @@ export default function Home() {
       </section>
 
       {/* Generating state */}
-      {busy && (
-        <section className="mt-8 flex animate-fade-up flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="relative mb-5 flex h-16 w-16 items-center justify-center">
-            <span className="absolute h-16 w-16 rounded-full bg-fuchsia-500/30 animate-pulse-ring" />
-            <span className="absolute h-16 w-16 rounded-full bg-violet-500/20 animate-pulse-ring [animation-delay:0.6s]" />
-            <span className="relative text-2xl">🎧</span>
-          </div>
-          <p className="text-lg font-semibold text-slate-900 dark:text-white">{statusText || "Composing your track…"}</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-violet-200/60">
-            Hang tight — great songs take a minute or two. Don&apos;t close this tab.
-          </p>
-        </section>
-      )}
+      {busy && <BuildingStudio status={status} />}
 
       {/* Results */}
       {phase === "done" && clips.length > 0 && (
@@ -290,15 +273,18 @@ export default function Home() {
               return (
                 <article
                   key={clip.id || i}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-300/30 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/30"
+                  style={{ animationDelay: `${i * 0.08}s` }}
+                  className="group animate-pop-in overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-300/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/30"
                 >
                   {clip.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={clip.imageUrl}
-                      alt={clip.title}
-                      className="aspect-square w-full object-cover"
-                    />
+                    <div className="overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={clip.imageUrl}
+                        alt={clip.title}
+                        className="aspect-square w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transform-none"
+                      />
+                    </div>
                   ) : (
                     <div className="flex aspect-square w-full items-center justify-center bg-gradient-to-br from-violet-500/40 to-fuchsia-500/40 text-4xl">
                       🎵

@@ -41,3 +41,7 @@ npm run dev            # http://localhost:3000
 3. Build command `npm run build` (auto-detected); Netlify adds the Next.js runtime.
 4. **Site settings → Environment variables → add `SUNO_API_KEY`** with your key.
 5. Deploy.
+
+## Credits
+
+Designed & developed by **Ana Zuliani**.

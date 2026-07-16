@@ -328,7 +328,11 @@ export default function Home() {
       )}
 
       <footer className="mt-auto pt-12 text-center text-xs text-violet-200/40">
-        Prototype · Music generated via Suno API · EZE
+        <p>Prototype · Music generated via Suno API · EZE</p>
+        <p className="mt-1.5">
+          Designed &amp; developed by{" "}
+          <span className="font-semibold text-violet-200/70">Ana Zuliani</span>
+        </p>
       </footer>
     </main>
   );

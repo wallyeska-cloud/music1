@@ -12,6 +12,8 @@ type SunoClip = {
   streamAudioUrl?: string;
   imageUrl?: string;
   duration?: number;
+  prompt?: string; // Suno stores the song's lyrics here (empty for instrumentals)
+  tags?: string; // style / genre tags
 };
 
 export async function GET(req: Request) {
@@ -52,6 +54,8 @@ export async function GET(req: Request) {
     streamAudioUrl: c.streamAudioUrl || "",
     imageUrl: c.imageUrl || "",
     duration: c.duration || 0,
+    lyrics: c.prompt || "",
+    tags: c.tags || "",
   }));
 
   return NextResponse.json({ status: d.status ?? "PENDING", clips });

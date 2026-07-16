@@ -2,12 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-}
-
+/* Light theme (default) */
 body {
   min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(124, 58, 237, 0.12), transparent 55%),
+    radial-gradient(1000px 700px at 100% 0%, rgba(236, 72, 153, 0.10), transparent 50%),
+    radial-gradient(900px 600px at 50% 120%, rgba(59, 130, 246, 0.10), transparent 55%),
+    #f6f5fb;
+  color: #1e1b2e;
+}
+
+/* Dark theme */
+.dark body {
   background:
     radial-gradient(1200px 600px at 15% -10%, rgba(124, 58, 237, 0.35), transparent 55%),
     radial-gradient(1000px 700px at 100% 0%, rgba(236, 72, 153, 0.28), transparent 50%),

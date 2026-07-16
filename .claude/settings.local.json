@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.sunoapi.org)",
+      "WebSearch",
+      "WebFetch(domain:sunor.cc)",
+      "WebFetch(domain:docs.anthropic.com)"
+    ]
+  }
+}

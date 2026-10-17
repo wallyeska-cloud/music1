@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ThemeToggle from "./components/ThemeToggle";
 import BuildingStudio from "./components/BuildingStudio";
+import VoiceMemoButton from "./components/VoiceMemoButton";
 
 type Clip = {
   id?: string;
@@ -182,6 +183,8 @@ export default function Home() {
           placeholder="e.g. A warm acoustic love song for a summer road trip, gentle guitar and soft vocals"
           className="w-full resize-none rounded-2xl border border-slate-300 bg-white p-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/20 disabled:opacity-60 dark:border-white/10 dark:bg-black/30 dark:text-white dark:placeholder:text-violet-200/40 dark:focus:border-fuchsia-400/60"
         />
+
+        <VoiceMemoButton value={prompt} onChange={setPrompt} maxLength={400} disabled={busy} />
 
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs text-slate-400 dark:text-violet-200/50">{prompt.length}/400</span>

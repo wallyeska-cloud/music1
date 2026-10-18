@@ -13,6 +13,15 @@ Built with **Next.js 14 (App Router)** + **Tailwind**. No database. Deploys to *
   - `POST /api/generate` → starts a Suno generation, returns a `taskId`.
   - `GET /api/status?taskId=…` → polls Suno for progress + finished audio.
   - `POST /api/callback` → no-op (Suno requires a callback URL; we poll instead).
+  - `POST/GET /api/stems` → splits a finished song into vocal + instrumental tracks (Suno vocal removal).
+  - `GET /api/audio` → same-origin passthrough for those tracks; only serves HMAC-signed, expiring links.
+  - `POST /api/voice/clone` / `convert` / `delete` → ElevenLabs Instant Voice Cloning and speech-to-speech
+    (all ElevenLabs calls live in `lib/voice/elevenlabs.ts`).
+- **Sing it in my voice:** after a song is made, the user records (or uploads) 20–90s of their voice
+  and ticks a consent box. We clone the voice, separate the song's vocals, re-sing them in ~12s slices
+  with speech-to-speech, and mix them back over the instrumental in the browser
+  (`lib/audio/browser-audio.ts`). The cloned voice is deleted right after. Experimental — quality on
+  singing varies.
 - The UI (`app/page.tsx`) collects a description, starts generation, shows an
   animated "creating" state, then renders playable/downloadable tracks.
 
@@ -31,6 +40,8 @@ npm run dev            # http://localhost:3000
 | `SUNO_API_KEY` | ✅ | Your sunoapi.org key. Server-side only. |
 | `SUNO_API_BASE` | — | Defaults to `https://api.sunoapi.org`. |
 | `SUNO_CALLBACK_URL` | — | Optional; defaults to a placeholder (we poll for results). |
+| `ELEVENLABS_API_KEY` | for "Sing it in my voice" | Server-side only. Plan must include Instant Voice Cloning. |
+| `ELEVENLABS_API_BASE` | — | Defaults to `https://api.elevenlabs.io`. |
 
 `.env` is gitignored and must **never** be committed. Set `SUNO_API_KEY` in Netlify too.
 

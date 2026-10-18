@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ThemeToggle from "./components/ThemeToggle";
 import BuildingStudio from "./components/BuildingStudio";
 import VoiceMemoButton from "./components/VoiceMemoButton";
+import MyVoicePanel from "./components/MyVoicePanel";
 
 type Clip = {
   id?: string;
@@ -48,6 +49,7 @@ export default function Home() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [clips, setClips] = useState<Clip[]>([]);
+  const [songTaskId, setSongTaskId] = useState("");
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef = useRef<number>(0);
@@ -128,6 +130,7 @@ export default function Home() {
       if (!res.ok || !data?.taskId) {
         throw new Error(data?.error || "Could not start your song.");
       }
+      setSongTaskId(data.taskId);
       setPhase("generating");
       deadlineRef.current = Date.now() + 3 * 60 * 1000; // 3 min budget
       poll(data.taskId);
@@ -333,6 +336,10 @@ export default function Home() {
                       >
                         Download ↓
                       </a>
+                    )}
+
+                    {clip.id && clip.lyrics && songTaskId && (
+                      <MyVoicePanel taskId={songTaskId} audioId={clip.id} title={clip.title} />
                     )}
                   </div>
                 </article>

@@ -48,9 +48,11 @@ type Props = {
   onChange: (next: string) => void;
   maxLength: number;
   disabled?: boolean;
+  /** Receives the memo's audio, so it can be reused for "Sing it in my voice". */
+  onRecording?: (audio: Blob) => void;
 };
 
-export default function VoiceMemoButton({ value, onChange, maxLength, disabled }: Props) {
+export default function VoiceMemoButton({ value, onChange, maxLength, disabled, onRecording }: Props) {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -60,6 +62,9 @@ export default function VoiceMemoButton({ value, onChange, maxLength, disabled }
   const baseRef = useRef("");
   const finalRef = useRef("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRecRef = useRef<MediaRecorder | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const listeningRef = useRef(false);
 
   // Detect after mount so server and client markup match.
   useEffect(() => setSupported(getRecognitionCtor() !== null), []);
@@ -75,9 +80,47 @@ export default function VoiceMemoButton({ value, onChange, maxLength, disabled }
     recRef.current?.stop();
   }, []);
 
+  // Ends the side recording; the MediaRecorder's onstop hands the audio over.
+  const stopAudio = useCallback(() => {
+    if (audioRecRef.current?.state === "recording") audioRecRef.current.stop();
+    else audioStreamRef.current?.getTracks().forEach((t) => t.stop());
+    audioRecRef.current = null;
+    audioStreamRef.current = null;
+  }, []);
+
+  // Keep a copy of the memo's audio alongside the transcription. Best-effort:
+  // if the browser won't share the mic twice, transcription carries on alone.
+  const startAudio = useCallback(async () => {
+    if (!onRecording || typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      return;
+    }
+    if (!listeningRef.current) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    const chunks: Blob[] = [];
+    const rec = new MediaRecorder(stream);
+    rec.ondataavailable = (e) => {
+      if (e.data.size) chunks.push(e.data);
+    };
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      if (chunks.length) onRecording(new Blob(chunks, { type: rec.mimeType || "audio/webm" }));
+    };
+    audioStreamRef.current = stream;
+    audioRecRef.current = rec;
+    rec.start();
+  }, [onRecording]);
+
   useEffect(
     () => () => {
+      listeningRef.current = false;
       recRef.current?.abort();
+      audioStreamRef.current?.getTracks().forEach((t) => t.stop());
       clearTimer();
     },
     [clearTimer],
@@ -120,6 +163,8 @@ export default function VoiceMemoButton({ value, onChange, maxLength, disabled }
     };
 
     rec.onend = () => {
+      listeningRef.current = false;
+      stopAudio();
       setListening(false);
       clearTimer();
       recRef.current = null;
@@ -133,10 +178,12 @@ export default function VoiceMemoButton({ value, onChange, maxLength, disabled }
     }
 
     recRef.current = rec;
+    listeningRef.current = true;
     setListening(true);
     setSeconds(0);
     timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-  }, [value, onChange, maxLength, disabled, clearTimer]);
+    startAudio();
+  }, [value, onChange, maxLength, disabled, clearTimer, stopAudio, startAudio]);
 
   if (!supported) return null;
 
@@ -200,7 +247,7 @@ export default function VoiceMemoButton({ value, onChange, maxLength, disabled }
         ) : listening ? (
           "Your words appear above as you talk — you can edit them before creating."
         ) : (
-          "Your browser turns your voice into text. We never save the recording."
+          "Your browser turns your voice into text. The audio stays on this device unless you use it for \u201cSing it in my voice\u201d."
         )}
       </p>
     </div>

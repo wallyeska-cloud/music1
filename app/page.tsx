@@ -50,6 +50,9 @@ export default function Home() {
   const [error, setError] = useState("");
   const [clips, setClips] = useState<Clip[]>([]);
   const [songTaskId, setSongTaskId] = useState("");
+  // Audio from the voice memo(s), kept in memory so "Sing it in my voice" can reuse it.
+  const [memoClips, setMemoClips] = useState<Blob[]>([]);
+  const addMemoClip = useCallback((clip: Blob) => setMemoClips((c) => [...c, clip]), []);
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef = useRef<number>(0);
@@ -187,7 +190,13 @@ export default function Home() {
           className="w-full resize-none rounded-2xl border border-slate-300 bg-white p-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/20 disabled:opacity-60 dark:border-white/10 dark:bg-black/30 dark:text-white dark:placeholder:text-violet-200/40 dark:focus:border-fuchsia-400/60"
         />
 
-        <VoiceMemoButton value={prompt} onChange={setPrompt} maxLength={400} disabled={busy} />
+        <VoiceMemoButton
+          value={prompt}
+          onChange={setPrompt}
+          maxLength={400}
+          disabled={busy}
+          onRecording={addMemoClip}
+        />
 
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs text-slate-400 dark:text-violet-200/50">{prompt.length}/400</span>
@@ -339,7 +348,12 @@ export default function Home() {
                     )}
 
                     {clip.id && clip.lyrics && songTaskId && (
-                      <MyVoicePanel taskId={songTaskId} audioId={clip.id} title={clip.title} />
+                      <MyVoicePanel
+                        taskId={songTaskId}
+                        audioId={clip.id}
+                        title={clip.title}
+                        memoClips={memoClips}
+                      />
                     )}
                   </div>
                 </article>

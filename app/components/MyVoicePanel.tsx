@@ -58,9 +58,11 @@ type Props = {
   taskId: string;
   audioId: string;
   title: string;
+  /** Audio captured by the voice memo(s) used to describe the song, if any. */
+  memoClips?: Blob[];
 };
 
-export default function MyVoicePanel({ taskId, audioId, title }: Props) {
+export default function MyVoicePanel({ taskId, audioId, title, memoClips = [] }: Props) {
   const [step, setStep] = useState<Step>("closed");
   const [consent, setConsent] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -68,6 +70,8 @@ export default function MyVoicePanel({ taskId, audioId, title }: Props) {
   const [sample, setSample] = useState<Blob | null>(null);
   const [sampleUrl, setSampleUrl] = useState("");
   const [sampleSec, setSampleSec] = useState(0);
+  const [sampleFromMemo, setSampleFromMemo] = useState(false);
+  const [memoSec, setMemoSec] = useState(0);
   const [progress, setProgress] = useState(0);
   const [detail, setDetail] = useState("");
   const [resultUrl, setResultUrl] = useState("");
@@ -95,24 +99,54 @@ export default function MyVoicePanel({ taskId, audioId, title }: Props) {
     [],
   );
 
-  const loadSample = useCallback(async (blob: Blob) => {
+  // Accepts one recording, or several voice-memo clips that get joined end to end.
+  const loadSample = useCallback(async (input: Blob | Blob[], fromMemo = false) => {
     setError("");
     try {
-      const decoded = await decodeAudio(blob);
-      if (decoded.duration < MIN_SECONDS) {
-        setError(`That's ${Math.round(decoded.duration)}s — we need at least ${MIN_SECONDS}s of your voice.`);
+      const parts = await Promise.all(
+        (Array.isArray(input) ? input : [input]).map(async (b) => toMono(await decodeAudio(b), SAMPLE_RATE)),
+      );
+      const total = parts.reduce((n, p) => n + p.length, 0);
+      const duration = total / SAMPLE_RATE;
+      if (duration < MIN_SECONDS) {
+        setError(
+          fromMemo
+            ? `Your voice memo is only ${Math.round(duration)}s — we need at least ${MIN_SECONDS}s. Record a bit more below.`
+            : `That's ${Math.round(duration)}s — we need at least ${MIN_SECONDS}s of your voice.`,
+        );
         return;
       }
-      const secs = Math.min(decoded.duration, MAX_SECONDS);
-      const mono = (await toMono(decoded, SAMPLE_RATE)).slice(0, Math.round(secs * SAMPLE_RATE));
+      const mono = new Float32Array(Math.min(total, MAX_SECONDS * SAMPLE_RATE));
+      let offset = 0;
+      for (const p of parts) {
+        if (offset >= mono.length) break;
+        mono.set(p.subarray(0, mono.length - offset), offset);
+        offset += p.length;
+      }
       const wav = encodeWav([mono], SAMPLE_RATE);
       setSample(wav);
-      setSampleSec(Math.round(secs));
+      setSampleSec(Math.round(mono.length / SAMPLE_RATE));
+      setSampleFromMemo(fromMemo);
       setSampleUrl(trackUrl(wav));
     } catch {
       setError("We couldn't read that audio. Try recording again, or upload an MP3/M4A/WAV file.");
     }
   }, []);
+
+  // How much voice-memo audio we have, so the button can say so up front.
+  useEffect(() => {
+    let cancelled = false;
+    if (!memoClips.length) {
+      setMemoSec(0);
+      return;
+    }
+    Promise.all(memoClips.map(async (b) => (await decodeAudio(b)).duration))
+      .then((d) => !cancelled && setMemoSec(Math.round(d.reduce((a, b) => a + b, 0))))
+      .catch(() => !cancelled && setMemoSec(0));
+    return () => {
+      cancelled = true;
+    };
+  }, [memoClips]);
 
   const stopRecording = useCallback(() => {
     recorderRef.current?.stop();
@@ -300,6 +334,15 @@ export default function MyVoicePanel({ taskId, audioId, title }: Props) {
                 <>● {sample ? "Record again" : "Start recording"}</>
               )}
             </button>
+            {!recording && memoSec > 0 && (
+              <button
+                type="button"
+                onClick={() => loadSample(memoClips, true)}
+                className="rounded-full border border-fuchsia-300 bg-white px-4 py-2 font-medium text-fuchsia-700 transition hover:bg-fuchsia-50 dark:border-fuchsia-300/30 dark:bg-white/5 dark:text-fuchsia-200 dark:hover:bg-fuchsia-500/10"
+              >
+                Use my voice memo ({memoSec}s)
+              </button>
+            )}
             {!recording && (
               <label className="cursor-pointer rounded-full border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/15 dark:bg-white/5 dark:text-violet-100 dark:hover:bg-white/10">
                 Upload a file
@@ -322,7 +365,9 @@ export default function MyVoicePanel({ taskId, audioId, title }: Props) {
 
           {sample && !recording && (
             <div className="mt-3">
-              <p className="mb-1 text-xs text-slate-500 dark:text-violet-200/60">Your recording ({sampleSec}s)</p>
+              <p className="mb-1 text-xs text-slate-500 dark:text-violet-200/60">
+                {sampleFromMemo ? "From your voice memo" : "Your recording"} ({sampleSec}s)
+              </p>
               <audio controls src={sampleUrl} />
             </div>
           )}
